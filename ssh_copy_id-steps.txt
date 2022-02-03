@@ -1,0 +1,134 @@
+Ref pccs password with 12 characters:
+!nTel@123$%^
+
+Observations:
+*copy icon utility is not proper.
+
+*api-key generation step is not provided at the initial part of document, which is mandatory.
+
+*cleanup script is not working as expected.
+./dek_provision.py --clean-up
+
+*pccs_user_token - insert a token required to access PCCS. To get API key follow here --> this is wrong as per archit's comment, needs to be changed to password.
+https://jira.devtools.intel.com/browse/ESS-7125?jql=text%20~%20%22PCKIDRetrievalTool%22
+
+
+
+
+git clone https://github.com/smart-edge-open/open-developer-experience-kits.git --branch=smart-edge-open-21.12 ~/dek
+
+Steps:-->pre-requisites
+1.set date first and then run apt-get update, upgrade commands
+
+setting the proper date:
+sudo date -s "YYYY-MM-DD HH:MM:SS"
+to overwrite the set date onto the hardware clock:
+*sudo hwclock --systohc --utc
+
+verify if the update is fine or else we'll stuck into the apt-cache update error
+If you feel vm is bit corrupted and not properly updating please create new one and do not proceed with the corrupted vm.
+
+sudo apt-get install \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release
+
+
+2. setting the proxy --> in vm settings gui menu --> also in /etc/environment file
+
+PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games"
+http_proxy=http://10.224.224.80:911
+https_proxy=http://10.224.224.80:912
+HTTP_PROXY=http://10.224.224.80:911
+HTTPS_PROXY=http://10.224.224.80:912
+ftp_proxy=http://10.224.224.80:911
+FTP_PROXY=http://10.224.224.80:911
+no_proxy=10.190.212.0/23,localhost,127.0.0.1
+NO_PROXY=10.190.212.0/23,localhost,127.0.0.1
+
+Optional:
+Set proxy /etc/apt/apt.conf file
+Acquire::http::Proxy "http://10.224.224.80:911";
+Acquire::https::Proxy "http://10.224.224.80:912";
+Acquire::Ftp::Proxy "http://10.224.224.80:911";
+
+
+3. set ipv4, ipv6 in /etc/hosts file accordingly:
+comment 127.0.1.1 line and add hostname adjacent to localhost present in 127.0.0.1 line
+also add hostname adjacent to ip6-loopback in the firstline
+
+
+4. Set this value onto /etc/ssh/ssh_config file
+Host 3.15.231.135
+  HostName 3.15.231.135
+Host 3.15.231.135
+  User root
+  ProxyCommand nc -x proxy-iind.intel.com:1080 %h %p
+
+
+
+
+
+*****AWS Instance*******
+
+creation steps: pending(phani)
+
+copy the pem file in the corresponding root directory of the ansible host
+
+make the following changes:(2 tab spaces except 1st and 3rd line)
+Host 3.15.231.135
+HostName 3.15.231.135
+Host 3.15.231.135
+User root
+ProxyCommand nc -x proxy-iind.intel.com:1080 %h %p
+
+After this do systemctl restart sshd to save the changes.
+
+Make sure that you have made necessary sshd_config file changes as mentioned below:
+
+1.Setting root password;
+--> sudo passwd
+2.After successful setting of root password navigate to /etc/ssh/sshd_config file
+3.Under Authentication: Uncomment PasswordAuthentication yes attribute and add PermitRootLogin yes attribute.
+4.save and exit the file.
+5.now run, systemctl restart sshd.
+6.then, follow the conventional way of copying ssh id onto the machines.
+
+
+
+Note: If you can't figure out the ubuntu/root user password use:
+sudo passwd
+sudo passwd ubuntu command to reset the password
+
+Don't disturb the /etc/hosts file of ansible host but add the hostname of the aws instance in the /etc/hosts file of the aws-instance itself
+
+cmd - hostname will give you the hostname value of the aws instance. you can add it to both ipv4 and ipv6
+
+**********API-KEY generation guide**********
+
+https://www.intel.com/content/www/us/en/developer/articles/guide/intel-software-guard-extensions-data-center-attestation-primitives-quick-install-guide.html 
+
+******custom.yml configurations********:
+
+concentrate on the /t tab spaces after each parameter. if yaml syntax is not proper it will throw error. 
+you can't leave the bmc.address field details empty --> fill it with the target node ip and credentials.
+
+    group_vars:
+      groups:
+        all:
+           proxy_env:
+              all_proxy: "socks5://proxy-iind.intel.com:1080"
+           isecl_control_plane_ip: "3.15.231.135"
+           isecl_cms_tls_hash: "9c59681af7993a0a1286300c831276e80a500527edd1a36fd8c047cb0ce1b122eba0882c1f8cfd8a31a11b0ba11f6>
+           platform_attestation_node: true
+           sgx_pccs_ip: "3.15.231.135"
+           pccs_user_token: "3e69b9a2a0bc4c039fc29ad88704fafc"
+        controller_group:
+        edgenode_group:
+
+********before starting image deployment on target node*******
+
+do the proper sgx settings:
+sgx factory reset, refer sublink in the document for sgx cofiguration.
+
